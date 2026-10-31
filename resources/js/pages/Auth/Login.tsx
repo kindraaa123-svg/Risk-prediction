@@ -11,12 +11,14 @@ const demoRoles = [
     { name: 'Management', icon: ChartNoAxesCombined },
 ];
 
+const appPath = (appUrl: string, path: string) => `${appUrl.replace(/\/$/, '')}${path}`;
+
 function LegacyLogin() {
     const { app, demo, systemSettings } = usePage<SharedProps>().props;
     const form = useForm({ email: '', password: '', remember: false });
     const [showPassword, setShowPassword] = useState(false);
     const [selectedRole, setSelectedRole] = useState<string | null>(null);
-    const submit = (event: FormEvent) => { event.preventDefault(); form.post('/login'); };
+    const submit = (event: FormEvent) => { event.preventDefault(); form.post(appPath(app.url, '/login')); };
     const chooseDemo = (role: string) => {
         const account = demo.accounts[role];
         if (!account) return;
@@ -45,7 +47,7 @@ export default function Login() {
     const form = useForm({ email: '', password: '', remember: false });
     const [showPassword, setShowPassword] = useState(false);
     const [selectedRole, setSelectedRole] = useState<string | null>(null);
-    const submit = (event: FormEvent) => { event.preventDefault(); form.post('/login'); };
+    const submit = (event: FormEvent) => { event.preventDefault(); form.post(appPath(app.url, '/login')); };
     const chooseRole = (role: string) => { const account = demo.accounts[role]; if (!account) return; setSelectedRole(role); form.setData({ email: account.email, password: account.password, remember: false }); };
     return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-5 py-10"><Head title="Masuk" /><div className="w-full max-w-md"><div className="mb-8 text-center"><div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-blue-600 text-xl font-bold text-white">{systemSettings.logoUrl ? <img src={systemSettings.logoUrl} alt={systemSettings.websiteName} className="h-full w-full object-contain" /> : 'K'}</div><h1 className="text-2xl font-semibold text-slate-900">{app.name}</h1><p className="mt-2 text-sm text-slate-500">Masuk ke ruang kerja manajemen proyek Anda.</p></div><div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"><form onSubmit={submit} className="space-y-5"><label className="block text-sm font-medium text-slate-700">Alamat email<input type="email" placeholder="nama@perusahaan.com" value={form.data.email} onChange={(event) => form.setData('email', event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 px-3.5 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" autoComplete="email" required />{form.errors.email && <span className="mt-1 block text-xs text-red-600">{form.errors.email}</span>}</label><label className="block text-sm font-medium text-slate-700">Kata sandi<div className="relative mt-2"><input type={showPassword ? 'text' : 'password'} placeholder="Masukkan kata sandi" value={form.data.password} onChange={(event) => form.setData('password', event.target.value)} className="w-full rounded-lg border border-slate-300 px-3.5 py-3 pr-11 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100" autoComplete="current-password" required /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400" aria-label="Tampilkan atau sembunyikan kata sandi">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{form.errors.password && <span className="mt-1 block text-xs text-red-600">{form.errors.password}</span>}</label><label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={form.data.remember} onChange={(event) => form.setData('remember', event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-blue-600" />Ingat saya</label><button disabled={form.processing} className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60">{form.processing ? 'Sedang masuk...' : 'Masuk'}</button></form>{demo.enabled && <div className="mt-7 border-t border-slate-200 pt-6"><p className="text-sm font-semibold text-slate-800">Akses demo cepat</p><p className="mt-1 text-xs text-slate-500">Pilih peran untuk mengisi kredensial demo.</p><div className="mt-4 grid grid-cols-2 gap-2">{demoRoles.map(({ name, icon: Icon }) => <button type="button" key={name} onClick={() => chooseRole(name)} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-xs font-medium ${selectedRole === name ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600'}`}><Icon size={15} />{name === 'Project Manager' ? 'Manajer Proyek' : name === 'Team Member' ? 'Anggota Tim' : name}</button>)}</div></div>}</div><p className="mt-6 text-center text-xs text-slate-400">Akses aman oleh {app.name}</p></div></main>;
 }

@@ -36,14 +36,16 @@ class SystemSettingService
         $values = $this->all();
         $logo = SystemSetting::query()->where('key', 'website_logo')->first();
         $favicon = SystemSetting::query()->where('key', 'website_favicon')->first();
+        $logoMedia = $logo?->getFirstMedia('setting-media');
+        $faviconMedia = $favicon?->getFirstMedia('setting-media');
 
         return [
             'websiteName' => $values['website_name'],
             'websiteShortName' => $values['website_short_name'],
             'websiteDescription' => $values['website_description'],
             'websiteTagline' => $values['website_tagline'],
-            'logoUrl' => $logo?->getFirstMedia('setting-media') ? route('system-media', $logo->getFirstMedia('setting-media')->getKey()) : null,
-            'faviconUrl' => $favicon?->getFirstMedia('setting-media') ? route('system-media', $favicon->getFirstMedia('setting-media')->getKey()) : null,
+            'logoUrl' => $logo?->value ?: ($logoMedia ? route('system-media', $logoMedia->getKey()) : null),
+            'faviconUrl' => $favicon?->value ?: ($faviconMedia ? route('system-media', $faviconMedia->getKey()) : null),
             'contactEmail' => $values['contact'] ?? $values['contact_email'],
             'contactPhone' => $values['contact_phone'],
             'contactWhatsapp' => $values['contact_whatsapp'],
@@ -70,7 +72,8 @@ class SystemSettingService
     public function putMedia(string $key, UploadedFile $file): void
     {
         $setting = SystemSetting::query()->updateOrCreate(['key' => $key], ['value' => null]);
-        $setting->addMedia($file)->toMediaCollection('setting-media');
+        $media = $setting->addMedia($file)->toMediaCollection('setting-media');
+        $setting->update(['value' => $media->getUrl()]);
 
         activity('system-settings')->causedBy(auth()->user())->withProperties(['setting' => $key])->log(ucwords(str_replace('_', ' ', $key)).' updated');
     }
@@ -78,7 +81,10 @@ class SystemSettingService
     public function removeMedia(string $key): void
     {
         $setting = SystemSetting::query()->where('key', $key)->first();
-        $setting?->clearMediaCollection('setting-media');
+        if ($setting) {
+            $setting->clearMediaCollection('setting-media');
+            $setting->update(['value' => null]);
+        }
 
         activity('system-settings')->causedBy(auth()->user())->withProperties(['setting' => $key])->log(ucwords(str_replace('_', ' ', $key)).' removed');
     }

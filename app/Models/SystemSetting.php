@@ -14,6 +14,8 @@ class SystemSetting extends Model implements HasMedia
 
     public function registerMediaCollections(): void
     {
-        $this->addMediaCollection('setting-media')->singleFile();
+        $this->addMediaCollection('setting-media')
+            ->singleFile()
+            ->useDisk('uploads');
     }
 }
