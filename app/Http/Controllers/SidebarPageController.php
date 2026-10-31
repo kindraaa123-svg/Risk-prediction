@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Spatie\Activitylog\Models\Activity;
+use App\Models\Activity;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -27,6 +27,7 @@ use Spatie\Permission\Models\Role;
 use App\Services\SystemSettingService;
 use App\Models\SystemSetting;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class SidebarPageController extends Controller
@@ -82,20 +83,93 @@ class SidebarPageController extends Controller
                 'tasks' => Task::query()->count(),
                 'completed_tasks' => Task::query()->where('status', 'completed')->count(),
             ],
+            'projects' => Project::query()->with('manager')->withCount('tasks')->orderBy('name')->get()->map(fn (Project $project): array => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'code' => $project->code,
+                'manager' => $project->manager?->name,
+                'status' => $project->status,
+                'priority' => $project->priority,
+                'progress' => $project->progress,
+                'due_date' => $project->due_date?->toDateString(),
+                'tasks_count' => $project->tasks_count,
+            ]),
+            'tasks' => Task::query()->with('project')->latest()->get()->map(fn (Task $task): array => [
+                'id' => $task->id,
+                'title' => $task->title,
+                'project' => $task->project?->name,
+                'status' => $task->status,
+                'priority' => $task->priority,
+                'progress' => $task->progress,
+                'due_date' => $task->due_date?->toDateString(),
+            ]),
         ]);
     }
 
-    public function activityLogs(): Response
+    public function exportReportsCsv(): StreamedResponse
     {
+        $filename = 'laporan-proyek-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function (): void {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, ['Jenis', 'Nama', 'Status', 'Prioritas', 'Progres', 'Tenggat'], ';');
+
+            Project::query()->orderBy('name')->each(function (Project $project) use ($handle): void {
+                fputcsv($handle, [
+                    'Proyek',
+                    $project->name,
+                    $project->status,
+                    $project->priority,
+                    $project->progress.'%',
+                    $project->due_date?->toDateString() ?? '',
+                ], ';');
+            });
+
+            Task::query()->with('project')->orderBy('title')->each(function (Task $task) use ($handle): void {
+                fputcsv($handle, [
+                    'Task',
+                    ($task->project?->name ? $task->project->name.' - ' : '').$task->title,
+                    $task->status,
+                    $task->priority,
+                    $task->progress.'%',
+                    $task->due_date?->toDateString() ?? '',
+                ], ';');
+            });
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function activityLogs(Request $request): Response
+    {
+        $search = trim($request->string('search')->toString());
+        $logName = trim($request->string('log_name')->toString());
+        $dateFrom = $request->date('date_from')?->startOfDay();
+        $dateTo = $request->date('date_to')?->endOfDay();
+        $query = Activity::query()->with('causer')->latest();
+
+        $query->when($search, fn ($query) => $query->where(function ($query) use ($search): void {
+            $query->where('description', 'like', '%'.$search.'%')
+                ->orWhere('ip_address', 'like', '%'.$search.'%')
+                ->orWhereHas('causer', fn ($causer) => $causer->where('name', 'like', '%'.$search.'%'));
+        }));
+        $query->when($logName, fn ($query) => $query->where('log_name', $logName));
+        $query->when($dateFrom, fn ($query) => $query->where('created_at', '>=', $dateFrom));
+        $query->when($dateTo, fn ($query) => $query->where('created_at', '<=', $dateTo));
+
         return Inertia::render('Admin/ActivityLogs/Index', [
-            'activities' => Activity::query()->with('causer')->latest()->limit(50)->get()->map(fn (Activity $activity): array => [
+            'activities' => $query->limit(50)->get()->map(fn (Activity $activity): array => [
                 'id' => $activity->id,
                 'description' => $activity->description,
                 'log_name' => $activity->log_name,
                 'causer' => $activity->causer?->name ?? 'System',
                 'subject' => $activity->subject_type ? class_basename($activity->subject_type).' #'.$activity->subject_id : '—',
+                'ip_address' => $activity->ip_address ?? '—',
                 'created_at' => $activity->created_at?->toISOString(),
             ]),
+            'logNames' => Activity::query()->whereNotNull('log_name')->distinct()->orderBy('log_name')->pluck('log_name')->values(),
+            'filters' => ['search' => $search, 'log_name' => $logName, 'date_from' => $request->input('date_from', ''), 'date_to' => $request->input('date_to', '')],
         ]);
     }
 

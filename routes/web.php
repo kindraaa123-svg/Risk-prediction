@@ -31,6 +31,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/risk-prediction', [SidebarPageController::class, 'riskPrediction'])->middleware('permission:risk-predictions.view')->name('risk-prediction.index');
     Route::get('/risk-mitigation', [SidebarPageController::class, 'riskMitigation'])->middleware('permission:risk-mitigations.manage')->name('risk-mitigation.index');
     Route::get('/reports', [SidebarPageController::class, 'reports'])->middleware('permission:reports.view')->name('reports.index');
+    Route::get('/reports/export/csv', [SidebarPageController::class, 'exportReportsCsv'])->middleware('permission:reports.export')->name('reports.export.csv');
 
     Route::prefix('admin')->middleware('permission:users.view')->group(function (): void {
         Route::get('/users', [UserManagementController::class, 'index'])->name('admin.users.index');

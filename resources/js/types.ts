@@ -7,5 +7,12 @@ export type SharedProps = {
 };
 
 export type DashboardProps = SharedProps & {
-    metrics: { users: number };
+    metrics: {
+        users: number;
+        projects: number;
+        highRiskProjects: number;
+        activities: number;
+        projectStatus: { status: string; total: number }[];
+        taskStatus: { status: string; total: number }[];
+    };
 };

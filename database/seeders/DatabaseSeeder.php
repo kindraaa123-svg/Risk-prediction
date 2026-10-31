@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use App\Models\Project;
 use App\Models\Task;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
@@ -67,6 +67,10 @@ class DatabaseSeeder extends Seeder
 
     private function seedWorkspaceData(User $admin): void
     {
+        if (Project::query()->exists()) {
+            return;
+        }
+
         $member = User::query()->where('status', 'active')->where('id', '!=', $admin->id)->first() ?? $admin;
 
         $projects = [
